@@ -1,0 +1,66 @@
+# --- 模型权重与大型二进制文件  ---
+models/
+checkpoints/
+*.bin
+*.pt
+*.pth
+*.safetensors
+*.ckpt
+# 忽略 PEFT 导出的 adapter 权重
+adapter_model/
+
+# 忽略调试文件夹
+sft-tldr-try1
+qwen-sft-tldr-debug/
+rm-tldr-margin/
+sft-tldr-lora/
+
+
+# --- 数据集 (通过脚本下载) ---
+data/
+*.csv
+*.jsonl
+*.parquet
+*.dataset
+
+# --- Python 运行缓存与环境配置 ---
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+.venv
+env/
+venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# --- Weights & Biases (W&B) 本地缓存 ---
+wandb/
+
+# --- 编译器与 IDE 配置 ---
+.vscode/
+.cursor/
+.idea/
+.DS_Store
+.vscode-server/
+.cursor-server/
+
+# --- Jupyter Notebook 临时文件 ---
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+
+# --- 实验日志与输出 ---
+logs/
+*.log
+results/*.png
+results/*.pdf
+# 如果你希望保留 results 目录结构但不上传内容，可以取消下面两行的注释
+# results/*
+# !results/.gitkeep
+
+# --- 压缩包与临时备份 ---
+*.zip
+*.tar.gz
+*.7z
+*.bak
+*.swp
