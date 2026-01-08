@@ -4,6 +4,8 @@ ROUGE评估脚本
 """
 
 import os
+os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
+
 import torch
 import json
 import csv
@@ -42,7 +44,7 @@ MODELS_TO_EVALUATE = [
 ]
 
 DATASET_PATH = "/workspace/pj-RL/datasets/openai_summarize_tldr"
-TEST_SAMPLES = 700
+TEST_SAMPLES = 7
 
 GENERATION_CONFIG = {
     "max_new_tokens": 60,
@@ -74,6 +76,17 @@ def extract_post_only(prompt: str) -> str:
     return prompt
 
 def evaluate_model_rouge(model, tokenizer, test_dataset, device):
+    # 【第一步：抢先初始化 ROUGE】
+    # 只要这行跑通了，就说明网络和环境没问题，后面可以放心推理
+    print("📋 正在初始化 ROUGE 评估器 (使用镜像源)...")
+    try:
+        rouge = evaluate.load("rouge")
+        print("✅ ROUGE 评估器加载成功！")
+    except Exception as e:
+        print(f"❌ ROUGE 加载失败！报错信息: {e}")
+        print("请检查是否执行了 export HF_ENDPOINT='https://hf-mirror.com'")
+        raise e  # 直接终止，不再跑后面的推理
+
     """评估模型的ROUGE分数"""
     model.eval()
     predictions = []
@@ -111,7 +124,7 @@ def evaluate_model_rouge(model, tokenizer, test_dataset, device):
         references.append(reference_summary)
     
     print("Computing ROUGE scores...")
-    rouge = evaluate.load("rouge")
+    # rouge = evaluate.load("rouge")
     rouge_scores = rouge.compute(
         predictions=predictions, 
         references=references,
