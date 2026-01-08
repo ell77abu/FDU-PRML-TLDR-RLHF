@@ -1,6 +1,8 @@
 # --- 模型权重与大型二进制文件  ---
 models/
 checkpoints/
+experiments1.5/
+experiments3/
 *.bin
 *.pt
 *.pth
@@ -8,6 +10,7 @@ checkpoints/
 *.ckpt
 # 忽略 PEFT 导出的 adapter 权重
 adapter_model/
+
 
 # 忽略调试文件夹
 sft-tldr-try1
@@ -18,6 +21,7 @@ sft-tldr-lora/
 
 # --- 数据集 (通过脚本下载) ---
 data/
+datasets/
 *.csv
 *.jsonl
 *.parquet

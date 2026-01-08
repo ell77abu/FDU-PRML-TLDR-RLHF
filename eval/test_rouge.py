@@ -26,11 +26,11 @@ MODELS_TO_EVALUATE = [
         "name": "SFT-Full-Baseline",
         "path": "/workspace/pj-RL/experiments3/qwen3-sft/final_checkpoint",
     },
-    {
-        "name": "SFT-LoRA-Comparison",
-        "path": "/workspace/pj-RL/experiments3/qwen3-sft-lora/final_checkpoint", 
-        # 注意：如果是LoRA，请确保路径下是merge后的完整权重，或者脚本能自动处理adapter
-    },
+    # {
+    #     "name": "SFT-LoRA-Comparison",
+    #     "path": "/workspace/pj-RL/experiments3/qwen3-sft-lora/final_checkpoint", 
+    #     # 注意：如果是LoRA，请确保路径下是merge后的完整权重，或者脚本能自动处理adapter
+    # },
     # {
     #     "name": "PPO-Baseline",
     #     "path": "../experiments3/qwen3-ppo-baseline/final_checkpoint",
@@ -59,6 +59,7 @@ os.makedirs(RESULTS_DIR, exist_ok=True)
 # 函数定义
 # =========================================================
 
+# 环境对齐
 def extract_post_only(prompt: str) -> str:
     """提取POST内容，与SFT训练时保持一致"""
     if "POST:" in prompt:
