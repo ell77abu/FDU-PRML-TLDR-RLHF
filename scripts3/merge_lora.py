@@ -18,7 +18,7 @@ def merge():
         trust_remote_code=True
     )
 
-    print(f"🩹 正在加载 LoRA 适配器...")
+    print(f"⚙️ 正在加载 LoRA 适配器...")
     model = PeftModel.from_pretrained(base_model, lora_adapter_path)
 
     print(f"🏗️ 正在合并权重 (Merge and Unload)...")
@@ -28,7 +28,7 @@ def merge():
     print(f"💾 正在保存完整模型至: {output_path}")
     model.save_pretrained(output_path)
     
-    # 别忘了保存分词器，ROUGE 脚本需要它
+    # 保存分词器，ROUGE 脚本需要它
     tokenizer = AutoTokenizer.from_pretrained(lora_adapter_path, trust_remote_code=True)
     tokenizer.save_pretrained(output_path)
 
