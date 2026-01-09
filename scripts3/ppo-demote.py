@@ -1,5 +1,7 @@
 import os
+import time
 import torch
+import wandb
 from tqdm import tqdm
 from datasets import load_from_disk
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
@@ -16,6 +18,27 @@ rm_model_path  = "/workspace/pj-RL/experiments3/qwen3-rm/final_rm"
 output_dir = "/workspace/pj-RL/experiments3/qwen3-ppo-final"
 
 os.makedirs(output_dir, exist_ok=True)
+
+# ===============================
+# 0.1 wandb 配置
+# ===============================
+run = wandb.init(
+    project="prml-ppo",
+    name=f"Qwen3-PPO-demote-{int(time.time())}",
+    config={
+        "model": sft_model_path,
+        "reward_model": rm_model_path,
+        "train_samples": 500,
+        "learning_rate": 1.41e-5,
+        "batch_size": 32,
+        "mini_batch_size": 2,
+        "gradient_accumulation_steps": 16,
+        "ppo_epochs": 4,
+        "target_kl": 0.1,
+        "init_kl_coef": 0.2,
+        "max_new_tokens": 60,
+    },
+)
 
 # ===============================
 # 1. Tokenizer (修复 Mistral Regex)
@@ -36,12 +59,15 @@ config = PPOConfig(
     learning_rate=1.41e-5,
     batch_size=32,               # 每 32 条数据执行一次 PPO 更新
     mini_batch_size=2,           # 24GB 显存单卡建议设为 2，防止 OOM
-    gradient_accumulation_steps=16, 
+    gradient_accumulation_steps=16,
     ppo_epochs=4,                # 每一批数据重复优化的次数
     target_kl=0.1,               # 限制模型与 SFT 模型的偏差
     init_kl_coef=0.2,
     optimize_cuda_cache=True,    # 0.9.6 特有：每步清理显存碎片
     seed=42,
+    # wandb 配置
+    log_with="wandb",
+    tracker_project_name="qwen3-ppo",
 )
 
 # ===============================
@@ -87,7 +113,7 @@ reward_model.eval()
 raw_dataset = load_from_disk("/workspace/pj-RL/datasets/summarize_from_feedback")["train"]
 
 def tokenize_fn(example):
-    prompt = f"POST: {example['info']['post']}\n\nTL;DR:"
+    prompt = f"{example['info']['post']}\n\nTL;DR:" # POST: 开头改为正常格式
     # 注意：这里只处理 input_ids，不进行 padding
     inputs = tokenizer(prompt, truncation=True, max_length=512)
     return {
@@ -96,7 +122,7 @@ def tokenize_fn(example):
     }
 
 # 选取 500 条进行 Baseline 训练
-ppo_dataset = raw_dataset.select(range(500)).map(tokenize_fn, remove_columns=raw_dataset.column_names)
+ppo_dataset = raw_dataset.shuffle(seed=42).select(range(20000)).map(tokenize_fn, remove_columns=raw_dataset.column_names)
 ppo_dataset.set_format(type="torch")
 
 def collator(data):
@@ -113,7 +139,6 @@ ppo_trainer = PPOTrainer(
     dataset=ppo_dataset,
     data_collator=collator,
 )
-l l
 # ===============================
 # 7. 训练循环
 # ===============================
@@ -123,7 +148,7 @@ generation_kwargs = {
     "top_p": 1.0,
     "do_sample": True,
     "pad_token_id": tokenizer.pad_token_id,
-    "max_new_tokens": 128,  # 增加长度，解决摘要写不完的问题
+    "max_new_tokens": 60,  # 增加长度，解决摘要写不完的问题
 }
 
 print("\n🚀 Starting PPO Training Baseline...\n")
@@ -148,9 +173,27 @@ for epoch, batch in enumerate(tqdm(ppo_trainer.dataloader)):
 
     # --- Step 3: PPO Step (更新模型) ---
     stats = ppo_trainer.step(query_tensors, response_tensors, rewards)
-    
+
     # 打印监控指标
     ppo_trainer.log_stats(stats, batch, rewards)
+
+    # --- Step 4: wandb 记录 ---
+    # 计算奖励模型分数的平均值
+    reward_scores = [r.item() for r in rewards]
+    avg_reward = sum(reward_scores) / len(reward_scores)
+
+    # 记录到 wandb
+    wandb.log({
+        "epoch": epoch,
+        "loss": stats.get("ppo/loss/total", 0),
+        "reward_score": avg_reward,
+        "kl_divergence": stats.get("ppo/loss/kl", 0),
+        "generated_text": batch["response"][0] if batch["response"] else "",  # 记录第一个生成的文本作为示例
+        "learning_rate": stats.get("ppo/learning_rate", config.learning_rate),
+        "ppo/policy/advantages_mean": stats.get("ppo/policy/advantages_mean", 0),
+        "ppo/returns/mean": stats.get("ppo/returns/mean", 0),
+        "ppo/val/vpred": stats.get("ppo/val/vpred", 0),
+    })
 
     # --- Step 4: 保存 Checkpoint ---
     if (epoch + 1) % 50 == 0:
@@ -159,3 +202,6 @@ for epoch, batch in enumerate(tqdm(ppo_trainer.dataloader)):
 # 最终保存
 ppo_trainer.save_pretrained(os.path.join(output_dir, "final_ppo_model"))
 print(f"\n✅ Training finished. Model saved to {output_dir}")
+
+# 结束 wandb 记录
+wandb.finish()
