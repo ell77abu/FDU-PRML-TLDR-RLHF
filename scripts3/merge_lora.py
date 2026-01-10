@@ -6,7 +6,7 @@ import os
 # 配置路径 - 请确保这些路径与你服务器上的实际路径一致
 base_model_path = "/workspace/pj-RL/experiments3/qwen3-sft/final_checkpoint"
 lora_adapter_path = "/workspace/pj-RL/experiments3/qwen3-ppo-final/final_ppo_model"
-output_path = "/workspace/pj-RL/experiments3/qwen3-ppo-merged" 
+output_path = "/workspace/pj-RL/experiments3/qwen3-ppo-merged5000" 
 
 def merge():
     print(f"🔄 正在加载基座模型...")
