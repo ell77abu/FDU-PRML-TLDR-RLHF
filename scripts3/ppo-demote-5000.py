@@ -64,7 +64,7 @@ config = PPOConfig(
     ppo_epochs=1,                # 每一批数据重复优化的次数
     #B. 为什么建议 ppo_epochs=1？在小数据集（500条）时，为了让模型“吃透”数据，我们设为 2。但在 5000 条时，数据量足够丰富，设为 1 可以显著降低 Reward Hacking 的风险。模型每步只看一次新数据，KL 增长会线性且平稳，而不是指数级跳变。
     target_kl=0.05,              # 限制模型与 SFT 模型的偏差
-    init_kl_coef=0.1,           # KL散度惩罚系数
+    init_kl_coef=0.04,           # KL散度惩罚系数
     # 针对大数据量新增：adap_kl_ctrl
     adap_kl_ctrl=True,
     optimize_cuda_cache=True,    # 0.9.6 特有：每步清理显存碎片
