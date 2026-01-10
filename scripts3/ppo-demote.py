@@ -14,7 +14,7 @@ from peft import LoraConfig
 device = "cuda"
 torch_dtype = torch.float16
 sft_model_path = "/workspace/pj-RL/experiments3/qwen3-sft/final_checkpoint"
-rm_model_path  = "/workspace/pj-RL/experiments3/qwen3-rm/final_rm"
+rm_model_path  = "/workspace/pj-RL/experiments3/qwen3-rm-normalized" # 使用归一化后的奖励模型
 output_dir = "/workspace/pj-RL/experiments3/qwen3-ppo-final"
 
 os.makedirs(output_dir, exist_ok=True)
@@ -23,20 +23,21 @@ os.makedirs(output_dir, exist_ok=True)
 # 0.1 wandb 配置
 # ===============================
 run = wandb.init(
-    project="prml-ppo",
-    name=f"Qwen3-PPO-demote-{int(time.time())}",
+    project="prml-norm-ppo",
+    name=f"Qwen3-PPO-demote-norm-{int(time.time())}",
     config={
         "model": sft_model_path,
         "reward_model": rm_model_path,
         "train_samples": 500,
-        "learning_rate": 1.41e-5,
-        "batch_size": 32,
+        "learning_rate": 7e-6,
+        "batch_size": 16,
         "mini_batch_size": 2,
-        "gradient_accumulation_steps": 16,
-        "ppo_epochs": 4,
-        "target_kl": 0.1,
+        "gradient_accumulation_steps": 8,
+        "ppo_epochs": 2,
+        "target_kl": 0.05,
         "init_kl_coef": 0.2,
         "max_new_tokens": 60,
+        "rm_offload": "cpu",  # RM 放在 CPU，推理时临时移到 GPU
     },
 )
 
@@ -56,13 +57,13 @@ tokenizer.padding_side = "left"
 # 2. PPO Config (针对 TRL 0.9.6 优化)
 # ===============================
 config = PPOConfig(
-    learning_rate=1.41e-5,
-    batch_size=32,               # 每 32 条数据执行一次 PPO 更新
-    mini_batch_size=2,           # 24GB 显存单卡建议设为 2，防止 OOM
-    gradient_accumulation_steps=16,
-    ppo_epochs=4,                # 每一批数据重复优化的次数
-    target_kl=0.1,               # 限制模型与 SFT 模型的偏差
-    init_kl_coef=0.2,
+    learning_rate=7e-6,
+    batch_size=16,               # 减小到 16 避免 OOM
+    mini_batch_size=2,           # 叛逆
+    gradient_accumulation_steps=8,
+    ppo_epochs=2,                # 每一批数据重复优化的次数
+    target_kl=0.05,              # 限制模型与 SFT 模型的偏差
+    init_kl_coef=0.05,           # KL散度惩罚系数
     optimize_cuda_cache=True,    # 0.9.6 特有：每步清理显存碎片
     seed=42,
     # wandb 配置
@@ -95,20 +96,45 @@ policy_model.gradient_checkpointing_enable()
 
 # 创建冻结的参考模型
 ref_model = create_reference_model(policy_model)
-
+for param in ref_model.parameters():
+    param.requires_grad = False
 # ===============================
 # 4. 加载奖励模型 (Reward Model)
 # ===============================
+print("\n🔹 Loading Reward Model (on CPU to save GPU memory)...")
 reward_model = AutoModelForSequenceClassification.from_pretrained(
     rm_model_path,
     trust_remote_code=True,
     torch_dtype=torch_dtype,
-    device_map="auto",
+    device_map="cpu",  # 放在 CPU，推理时临时移到 GPU
 )
+
+# 🔧 归一化模型 bias 加载适配
+if hasattr(reward_model, "score") and reward_model.score.bias is None:
+    print("  ⚠️  Score head has no bias, loading from state dict...")
+    state_dict_path = os.path.join(rm_model_path, "pytorch_model.bin")
+    if os.path.exists(state_dict_path):
+        state_dict = torch.load(state_dict_path, map_location="cpu")
+        if "score.bias" in state_dict:
+            old_score = reward_model.score
+            new_score = torch.nn.Linear(old_score.in_features, old_score.out_features, bias=True)
+            new_score.weight.data = old_score.weight.data
+            new_score.bias.data = state_dict["score.bias"].to(dtype=torch_dtype)
+            reward_model.score = new_score
+            print(f"  ✅ Loaded normalized RM with bias = {new_score.bias.item():.6f}")
+        else:
+            print("  ⚠️  WARNING: No bias found, RM may not be normalized!")
+elif hasattr(reward_model, "score") and reward_model.score.bias is not None:
+    print(f"  ✅ RM loaded with bias = {reward_model.score.bias.item():.6f}")
+
 reward_model.eval()
+for param in reward_model.parameters():
+    param.requires_grad = False
+print("  💡 RM will be moved to GPU only during inference")
 
 # ===============================
-# 5. 数据集准备
+# 5. 数据集准备 
+# tokenizer.decode(output_ids[0, len(input_ids[0]):], skip_special_tokens=True)
 # ===============================
 raw_dataset = load_from_disk("/workspace/pj-RL/datasets/summarize_from_feedback")["train"]
 
@@ -122,7 +148,7 @@ def tokenize_fn(example):
     }
 
 # 选取 500 条进行 Baseline 训练
-ppo_dataset = raw_dataset.shuffle(seed=42).select(range(20000)).map(tokenize_fn, remove_columns=raw_dataset.column_names)
+ppo_dataset = raw_dataset.shuffle(seed=42).select(range(500)).map(tokenize_fn, remove_columns=raw_dataset.column_names)
 ppo_dataset.set_format(type="torch")
 
 def collator(data):
@@ -145,9 +171,11 @@ ppo_trainer = PPOTrainer(
 generation_kwargs = {
     "min_length": -1,
     "top_k": 0.0,
-    "top_p": 1.0,
+    "top_p": 0.95,
     "do_sample": True,
+    "temperature": 0.7,
     "pad_token_id": tokenizer.pad_token_id,
+    "eos_token_id": tokenizer.eos_token_id,
     "max_new_tokens": 60,  # 增加长度，解决摘要写不完的问题
 }
 
@@ -165,11 +193,16 @@ for epoch, batch in enumerate(tqdm(ppo_trainer.dataloader)):
     texts = [q + r for q, r in zip(batch["query"], batch["response"])]
     inputs = tokenizer(texts, return_tensors="pt", padding=True, truncation=True).to(device)
     
+    # 临时将 RM 移到 GPU 进行推理
+    reward_model.to(device)
     with torch.no_grad():
         # 假设 RM 输出的 logits 的第一个维度是奖励分数
         outputs = reward_model(**inputs)
         # 获取分数并转为 tensor list
         rewards = [torch.tensor(score.item()) for score in outputs.logits]
+    # 推理完成后移回 CPU 释放显存
+    reward_model.to("cpu")
+    torch.cuda.empty_cache()
 
     # --- Step 3: PPO Step (更新模型) ---
     stats = ppo_trainer.step(query_tensors, response_tensors, rewards)
