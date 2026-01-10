@@ -146,7 +146,7 @@ RM_PATH   = "/workspace/pj-RL/experiments3/qwen3-rm/final_rm"
 DATA_PATH = "/workspace/pj-RL/datasets/summarize_from_feedback"
 SAVE_PATH = "/workspace/pj-RL/experiments3/qwen3-rm-normalized"
 
-SAMPLE_SIZE = 2000
+SAMPLE_SIZE = 5000 # 5000？
 BATCH_SIZE  = 8
 MAX_LENGTH  = 1024
 
@@ -166,9 +166,11 @@ model = AutoModelForSequenceClassification.from_pretrained(
 model.eval()
 
 # ============================
-# Compute mean reward (使用全量样本)
+# Compute mean reward (使用随机采样)
 # ============================
-dataset = load_from_disk(DATA_PATH)["train"]
+print("🎲 Shuffling dataset for representative sampling...")
+dataset = load_from_disk(DATA_PATH)["train"].shuffle(seed=42)
+
 n = min(SAMPLE_SIZE, len(dataset))
 texts = []
 for i in range(n):
@@ -216,24 +218,29 @@ new_mean = sum(verify_scores) / n
 print(f"  → New human reference mean = {new_mean:.6f} (Should be near 0)")
 
 # ============================
-# 💾 保存并“黑入”配置文件
+# 💾 保存模型（使用 PyTorch 格式确保 bias 被保存）
 # ============================
 print("💾 Saving calibrated RM...")
-model.save_pretrained(SAVE_PATH)
+
+# 使用 PyTorch 格式保存（.bin）而不是 safetensors
+# 这样可以确保 bias 参数被正确保存
+model.save_pretrained(SAVE_PATH, safe_serialization=False)
 tokenizer.save_pretrained(SAVE_PATH)
 
-# 修改 config.json 让它在未来加载时支持 bias
+# 修改 config.json 添加自定义字段标记这是归一化模型
 config_file = os.path.join(SAVE_PATH, "config.json")
 with open(config_file, "r") as f:
     config = json.load(f)
 
-# Qwen3 内部是通过这个类名来决定是否创建 bias 的
-# 我们可以尝试修改其 model_type 或者在 ppo 加载时增加一个辅助补丁
-# 最直接的方法是在文件夹下放一个简单的加载补丁 README
-print(f"\n✅ Done. Calibrated RM saved to: {SAVE_PATH}")
-print(f"⚠️ 注意：加载该模型时，请务必在代码中加入以下逻辑以激活 Bias：")
-print("""
-    model = AutoModelForSequenceClassification.from_pretrained(path, ...)
-    if model.score.bias is None:
-        model.score = torch.nn.Linear(model.config.hidden_size, 1, bias=True) # 重新创建即可自动加载权重
-""")
+# 添加自定义字段
+config["_normalized_rm"] = True
+config["_normalization_bias"] = float(-mean_reward)
+config["_score_head_has_bias"] = True
+
+with open(config_file, "w") as f:
+    json.dump(config, f, indent=2)
+
+print(f"✅ Done. Calibrated RM saved to: {SAVE_PATH}")
+print(f"📝 Config updated with normalization metadata")
+print(f"   - Bias value: {-mean_reward:.6f}")
+print(f"   - Saved in PyTorch format (.bin) to preserve bias layer")
