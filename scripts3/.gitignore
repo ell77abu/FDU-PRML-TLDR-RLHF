@@ -1,2 +1,4 @@
 trainer_output/*
 wandb/*
+*.md
+qwen3-**/
