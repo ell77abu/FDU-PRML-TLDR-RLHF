@@ -88,7 +88,6 @@ axes = axes.flatten()
 
 for i, axis in enumerate(TARGET_AXES):
     axes[i].scatter(gts[:, i], preds[:, i], alpha=0.4, s=20, color='darkblue')
-    # 绘制完美预测线
     axes[i].plot([0, 1], [0, 1], transform=axes[i].transAxes, color='red', linestyle='--', label='Perfect Match')
     axes[i].set_title(f"Correlation: {axis.capitalize()}")
     axes[i].set_xlabel("Ground Truth (Normalized)")
@@ -97,13 +96,13 @@ for i, axis in enumerate(TARGET_AXES):
     axes[i].legend()
 
 plt.tight_layout()
-plt.savefig(f"{OUTPUT_DIR}/prediction_vs_gt_comparison.png")
-print(f"\n>>> 对比分析图表已保存至: {OUTPUT_DIR}/prediction_vs_gt_comparison.png")
+plt.savefig(f"{OUTPUT_DIR}/prediction_vs_gt_comparison.pdf")
+print(f"\n>>> 对比分析图表已保存至: {OUTPUT_DIR}/prediction_vs_gt_comparison.pdf")
 
 # ===============================
-# 7. 案例抽查 (Case Study)
+# 7. 案例抽查
 # ===============================
-print("\n>>> 案例随机抽查 (展示预测最准/最不准的样本可能更有意义，此处展示第一条):")
+print("\n>>> 随机抽查（此处展示第一条):")
 print(f"文本截断: {test_dataset[0]['summary']['text'][:100]}...")
 print(f"真实分数 (1-7): {gts[0]*6+1}")
 print(f"预测分数 (1-7): {preds[0]*6+1}")

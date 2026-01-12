@@ -9,8 +9,8 @@ import wandb
 os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-model_id = "/workspace/pj-RL/models/Qwen3-1.7B"   # ⚠️ base model
-output_dir = "./trial2-sft-qwen3-1.7b"
+model_id = "/workspace/pj-RL/models/Qwen3-1.7B"   # 本地模型路径
+output_dir = "/workspace/pj-RL/experiments3/qwen3-sft"
 
 # ===============================
 # 2. wandb（可选）

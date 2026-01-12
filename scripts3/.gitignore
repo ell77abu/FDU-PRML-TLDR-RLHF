@@ -1,4 +1,4 @@
-trainer_output/*
-wandb/*
+trainer_output/
+wandb/
 *.md
 qwen3-**/

@@ -22,21 +22,25 @@ import evaluate
 MODELS_TO_EVALUATE = [
     {
         "name": "Base-Qwen3-1.7B",
-        "path": "../models/Qwen3-1.7B",
+        "path": "../models/Qwen3-1.7B",    
     },
     {
-        "name": "SFT-Full-Baseline",
+        "name": "SFT-Full",
         "path": "/workspace/pj-RL/experiments3/qwen3-sft/final_checkpoint",
     },
-    # {
-    #     "name": "SFT-LoRA-Comparison",
-    #     "path": "/workspace/pj-RL/experiments3/qwen3-sft-lora/final_checkpoint", 
-    #     # 注意：如果是LoRA，请确保路径下是merge后的完整权重，或者脚本能自动处理adapter
-    # },
-    # {
-    #     "name": "PPO-Baseline",
-    #     "path": "../experiments3/qwen3-ppo-baseline/final_checkpoint",
-    # },
+    {
+        "name": "grpo-baseline",
+        "path": "/workspace/pj-RL/experiments3/qwen3-grpo-final-10k/checkpoint-1500",
+    },
+    {
+        "name": "grpo-axis",
+        "path": "/workspace/pj-RL/experiments3/qwen3-grpo-axis-merged/checkpoint-1200-merged",
+    },
+    {
+        "name": "grpo-hybrid",
+        "path": "/workspace/pj-RL/qwen3-grpo-hybrid-rm/checkpoint-1950",
+    },    
+
     # {
     #     "name": "PPO-Improved",
     #     "path": "../experiments3/qwen3-ppo-improved/final_checkpoint",
@@ -44,7 +48,7 @@ MODELS_TO_EVALUATE = [
 ]
 
 DATASET_PATH = "/workspace/pj-RL/datasets/openai_summarize_tldr"
-TEST_SAMPLES = 7
+TEST_SAMPLES = 500
 
 GENERATION_CONFIG = {
     "max_new_tokens": 60,

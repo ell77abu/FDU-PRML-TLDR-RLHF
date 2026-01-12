@@ -30,7 +30,6 @@ def format_reward_dataset(example):
     # 严格匹配 RM 训练时的 prompt 格式
     return {"prompt": f"{example['info']['post']}\n\nTL;DR:"}
 
-# 建议直接开启 2000 条测试，以观察 Reward 稳定上升趋势
 train_dataset = raw_dataset.shuffle(seed=42).select(range(5000)).map(format_reward_dataset)
 
 # ================= 3. 奖励函数定义 (对齐 RM 训练分布) =================
@@ -47,7 +46,7 @@ def get_reward_score(prompts, completions, **kwargs):
     """
     eos_token = tokenizer.eos_token
     
-    # 这里的关键是加上 eos_token
+    # 加 eos_token
     texts = [p + c + eos_token for p, c in zip(prompts, completions)]
     
     pipe_outputs = reward_pipe(
@@ -58,15 +57,14 @@ def get_reward_score(prompts, completions, **kwargs):
     )
     return [output["score"] for output in pipe_outputs]
 
-# ================= 4. GRPO 训练参数 (正式 10k 冲刺版) =================
+# ================= 4. GRPO 训练参数 =================
 training_args = GRPOConfig(
     output_dir="./qwen3-grpo-final-10k",
     
     # --- 学习率策略 ---
     learning_rate=2e-6,           
     lr_scheduler_type="cosine",
-    # 10000 / (1 * 16) = 625 steps
-    # 建议 warmup 设为总步数的 5-8%，即 30-50 步
+    # 建议 warmup 
     warmup_steps=40,                
     weight_decay=0.01,
     
@@ -75,7 +73,7 @@ training_args = GRPOConfig(
     gradient_accumulation_steps=16, 
     num_generations=8,              # 保持 8 能够显著平滑 Reward 曲线，利于观察趋势
     max_prompt_length=512,
-    max_completion_length=64,      # 必须保持 128，给模型留出完整收尾空间
+    max_completion_length=64,      
     
     # --- KL 监控与惩罚 (核心指标) ---
     beta=0.1,                       # 显式开启 beta 确保 WandB 记录 objective/kl
@@ -85,10 +83,10 @@ training_args = GRPOConfig(
     gradient_checkpointing=True,
     optim="adamw_8bit",           
     
-    # --- 日志与保存 (针对 2 天限时优化) ---
+    # --- 日志保存--
     num_train_epochs=1,
     logging_steps=1,
-    save_steps=150,                 # 略微调大，减少频繁保存模型导致的 IO 阻塞
+    save_steps=150,                 
     save_total_limit=2,             # 只保留最新的两个，节省磁盘空间
     report_to="wandb",
     log_completions=True,           

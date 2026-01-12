@@ -10,7 +10,7 @@ experiments3/
 *.ckpt
 # 忽略 PEFT 导出的 adapter 权重
 adapter_model/
-
+trainer_output/
 
 # 忽略调试文件夹
 sft-tldr-try1

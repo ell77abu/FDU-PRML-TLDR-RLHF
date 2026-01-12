@@ -18,9 +18,9 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # ---- 模型路径（本地）----
-# 当前工作目录是 /workspace/pj-RL/trial2-qwen3-1.7B，模型目录在上一级 pj-RL/trial2-sft-qwen3-1.7b
-MODEL_ID = "../trial2-sft-qwen3-1.7b/final_checkpoint"   # ← 你的 SFT checkpoint
-OUTPUT_DIR = "./trial2-rm-qwen3-1.7b"
+
+MODEL_ID = "/workspace/pj-RL/models/Qwen3-1.7B"   # SFT checkpoint
+OUTPUT_DIR = "/workspace/experiments3/qwen3-rm"
 
 # ---- 数据路径（本地）----
 DATASET_PATH = "/workspace/pj-RL/datasets/summarize_from_feedback"
@@ -95,18 +95,8 @@ else:
         .shuffle(seed=42)
         .select(range(min(EVAL_SAMPLE, len(dataset["validation"]))))
     )
-    # # 如果有测试集，用测试集；否则复用验证集
-    # if "test" in dataset:
-    #     test_raw = (
-    #         dataset["test"]
-    #         .shuffle(seed=42)
-    #         .select(range(min(TEST_SAMPLE, len(dataset["test"]))))
-    #     )
-    # else:
-    #     test_raw = eval_raw
-
 # =========================================================
-# 5. Prompt + Tokenize（关键：统一格式）
+# 5. Prompt + Tokenize（和SFT统一格式）
 # =========================================================
 def preprocess_function(examples):
     chosen = []
@@ -117,7 +107,6 @@ def preprocess_function(examples):
         examples["summaries"],
         examples["choice"],
     ):
-        # -------- Prompt（与你 SFT / PPO 完全一致）--------
         prompt = f"{info['post']}\n\nTL;DR:"
 
         chosen_text = prompt + summaries[choice]["text"] + tokenizer.eos_token
@@ -141,15 +130,7 @@ eval_dataset = eval_raw.map(
     batched=True,
     remove_columns=eval_raw.column_names,
 )
-# test_dataset = test_raw.map(
-#     preprocess_function,
-#     batched=True,
-#     remove_columns=test_raw.column_names,
-# )
 
-# =========================================================
-# 5.1 打印一条喂给模型的拼接文本格式（不训练时查看）
-# =========================================================
 sample_info = train_raw[0]["info"]
 sample_summaries = train_raw[0]["summaries"]
 sample_choice = train_raw[0]["choice"]
@@ -221,28 +202,8 @@ trainer = RewardTrainer(
 # =========================================================
 # 9. Train
 # =========================================================
-print("🚀 Starting Reward Model training (Qwen3-1.7B)...")
+print("Starting Reward Model training (Qwen3-1.7B)")
 trainer.train()
-
-# # =========================================================
-# # 9.1 Evaluate on validation and test
-# # =========================================================
-# print("\n📊 Evaluating on validation set...")
-# val_metrics = trainer.evaluate()
-# print("Validation metrics:", val_metrics)
-# try:
-#     wandb.log({f"val_{k}": v for k, v in val_metrics.items()})
-# except Exception:
-#     pass
-
-# print("\n🧪 Testing on test set...")
-# test_metrics = trainer.evaluate(eval_dataset=test_dataset)
-# print("Test metrics:", test_metrics)
-# try:
-#     wandb.log({f"test_{k}": v for k, v in test_metrics.items()})
-# except Exception:
-#     pass
-
 # =========================================================
 # 10. Save
 # =========================================================
@@ -250,4 +211,4 @@ final_path = f"{OUTPUT_DIR}/final_rm"
 trainer.save_model(final_path)
 tokenizer.save_pretrained(final_path)
 
-print(f"✅ Reward Model saved to: {final_path}")
+print(f"Reward Model saved to: {final_path}")

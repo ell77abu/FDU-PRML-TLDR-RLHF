@@ -63,7 +63,7 @@ tokenized_ds = split_dataset.map(preprocess_fn, batched=True, remove_columns=raw
 print(f"DEBUG - 样本标签: {tokenized_ds['train'][0]['labels']}")
 
 # ===============================
-# 2. 模型定义与重锤初始化
+# 2. 模型定义与初始化
 # ===============================
 model = AutoModelForSequenceClassification.from_pretrained(
     MODEL_ID, num_labels=len(TARGET_AXES), problem_type="regression",
@@ -96,7 +96,7 @@ warmup_args = TrainingArguments(
     output_dir=f"{OUTPUT_DIR}/warmup",
     per_device_train_batch_size=4,
     gradient_accumulation_steps=8,
-    learning_rate=5e-4, # 仅训练 Head，可以用大点的学习率
+    learning_rate=5e-4, # 仅训练 Head
     max_steps=50,       # 只跑 50 步快速对齐数值
     bf16=True,
     max_grad_norm=0.5,
