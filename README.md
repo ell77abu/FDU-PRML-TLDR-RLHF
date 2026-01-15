@@ -1,9 +1,8 @@
 # FDU-PRML-PJ Qwen3 RLHF Summarization
 
-面向 TL;DR摘要任务。
+面向 TL;DR 摘要任务的强化学习奖励设计优化项目。
 
-训练流程：SFT → 奖励模型（RM）→ GRPO
-全部在本地 Qwen3-1.7B 上运行，数据集CarperAI/openai_summarize_tldr和openai/summarize_from_feedback均下载到本地
+> 训练流程 (SFT → 奖励模型（RM）→ GRPO) 全部在本地 Qwen3-1.7B 上运行; 数据集[CarperAI/openai_summarize_tldr](https://huggingface.co/datasets/CarperAI/openai_summarize_tldr/viewer/default/train?views%5B%5D=train)和[openai/summarize_from_feedback](https://huggingface.co/datasets/openai/summarize_from_feedback/viewer/axis?views%5B%5D=axis_validation)均下载到本地。
 
 ## 目录结构
 - scripts3/ baseline代码
@@ -29,11 +28,12 @@
 conda env create -f environment.yml
 conda activate prml_pj
 ```
-2) 硬件：单张 24GB+ NVIDIA GPU，已安装 CUDA 11.7/12.1 兼容驱动。
+2) 硬件设备：单张 24GB+ NVIDIA GPU，已安装 CUDA 11.7/12.1 兼容驱动。
 
 ## 数据准备(本地)
-- SFT数据集：CarperAI/openai_summarize_tldr
-- RM数据集：openai/summarize_from_feedback comparison/axis
+- SFT数据集：[CarperAI/openai_summarize_tldr](https://huggingface.co/datasets/CarperAI/openai_summarize_tldr/viewer/default/train?views%5B%5D=train)
+- RM数据集：[openai/summarize_from_feedback](https://huggingface.co/datasets/openai/summarize_from_feedback/viewer/axis?views%5B%5D=axis_validation)
+
 
 ## 训练运行流程
 ### 1) 监督微调（SFT）
@@ -59,5 +59,5 @@ python test_env.py
 ```
 - 奖励模型与 ROUGE 测试：eval/ 目录下的 `test_rm_*.py`、`test_rouge.py`（按需修改路径后运行）。
 ## 日志与模型产出
-- 采用wandb记录
+- 采用wandb可视化记录实验结果
 
