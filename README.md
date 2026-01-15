@@ -1,6 +1,7 @@
 # FDU-PRML-PJ Qwen3 RLHF Summarization
 
-面向 TL;DR摘要任务
+面向 TL;DR摘要任务。
+
 训练流程：SFT → 奖励模型（RM）→ GRPO
 全部在本地 Qwen3-1.7B 上运行，数据集CarperAI/openai_summarize_tldr和openai/summarize_from_feedback均下载到本地
 
